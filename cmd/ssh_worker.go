@@ -1,8 +1,13 @@
 package cmd
 
-import "golang.org/x/crypto/ssh"
+import (
+	"fmt"
+	"golang.org/x/crypto/ssh"
+	"os"
+)
 
 type sshWorker struct {
+	addr string
 	sshClient *ssh.Client
 }
 
@@ -11,6 +16,17 @@ func (sw *sshWorker) execute(cmd string) error {
 	if err != nil {
 		return nil;
 	}
+	defer sess.Close()
+
+	result ,err := sess.CombinedOutput(cmd)
+
+	suffix := "OK"
+	if err != nil {
+		//return err;
+		suffix = "Err"
+	}
+
+	fmt.Fprintf(os.Stdout,"[%s %s] %s",sw.addr,suffix,string(result));
 
 	return nil
 }

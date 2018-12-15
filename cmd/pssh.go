@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"
+	"os"
 )
 
 func NewPsshCommand() *cobra.Command {
@@ -31,9 +32,13 @@ func NewPsshCommand() *cobra.Command {
 
 func runCmd(cmd *cobra.Command, args []string, config config) error {
 
-	log.Info("Execute", config)
+	hosts,err := config.listHosts()
 
-	hosts := config.listHosts()
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Execute %v", hosts)
 
 	if len(hosts) <= 0 {
 		return fmt.Errorf("no hosts to connects")
@@ -41,27 +46,36 @@ func runCmd(cmd *cobra.Command, args []string, config config) error {
 
 	sshWorkers := make(map[string]sshWorker,len(hosts))
 
-	for host := range hosts {
-		addr := fmt.Sprintf("%s:%v",host,config.port)
+	for _,host := range hosts {
+		addr := fmt.Sprintf("%s:%v",host,config.Port)
 		conn , err := net.Dial("tcp",addr)
 		if err != nil {
 			return err
 		}
 
-		auth := []ssh.AuthMethod{ssh.Password(config.password)}
+		auth := []ssh.AuthMethod{ssh.Password(config.Password)}
 
-		sshConf := &ssh.ClientConfig{User:config.user,Auth:auth}
+		sshConf := &ssh.ClientConfig{User:config.User,Auth:auth,HostKeyCallback:
+			func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+				return nil
+		}}
+
 		sshConn, newChan, reqChan, err := ssh.NewClientConn(conn,addr,sshConf)
 		if err != nil {
 			return err
 		}
 
 		sshClient := ssh.NewClient(sshConn,newChan,reqChan)
-		sshWorker := sshWorker{sshClient:sshClient}
+		sshWorker := sshWorker{sshClient:sshClient,addr:addr}
 		sshWorkers[addr] = sshWorker
 	}
 
+	for _, worker := range sshWorkers {
 
+		if err := worker.execute(config.Cmd); err != nil {
+			fmt.Fprintf(os.Stderr,"[%s Err] %v\n",worker.addr,err)
+		}
+	}
 
 	return nil;
 }
