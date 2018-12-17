@@ -18,3 +18,7 @@ user: user
 password: password
 cmd: uname -a
 ```
+
+```
+go-pssh -y xxxx.yaml
+```
