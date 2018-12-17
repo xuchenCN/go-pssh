@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
-	"os"
+	"io"
 )
 
 type sshWorker struct {
@@ -11,7 +12,7 @@ type sshWorker struct {
 	sshClient *ssh.Client
 }
 
-func (sw *sshWorker) execute(cmd string) error {
+func (sw *sshWorker) executeAndOutput(cmd string, stdout io.Writer, stderr io.Writer) error {
 	sess , err := sw.sshClient.NewSession()
 	if err != nil {
 		return nil;
@@ -20,13 +21,15 @@ func (sw *sshWorker) execute(cmd string) error {
 
 	result ,err := sess.CombinedOutput(cmd)
 
-	suffix := "OK"
 	if err != nil {
-		//return err;
-		suffix = "Err"
+		colorOut := color.New(color.FgRed)
+		colorOut.Fprintf(stderr,"[%s %s]\n ",sw.addr,"ERROR")
+		fmt.Fprintf(stderr,"%s %s\n",string(result),err)
+	} else {
+		colorOut := color.New(color.FgGreen)
+		colorOut.Fprintf(stdout,"[%s %s]\n",sw.addr,"OK");
+		fmt.Fprintf(stdout,"%s\n",string(result))
 	}
-
-	fmt.Fprintf(os.Stdout,"[%s %s] %s",sw.addr,suffix,string(result));
 
 	return nil
 }

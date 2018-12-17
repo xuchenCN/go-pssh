@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/xuchenCN/go-pssh/yaml"
+	"golang.org/x/crypto/ssh"
 	"io"
 	"net"
 	"os"
@@ -23,12 +24,14 @@ type config struct {
 	User string 	`json:user`
 	Password string	`json:"password"`
 	Cmd string		`json:"cmd"`
+	Async bool 		`json:"async"`
 }
 
 func (c *config) addFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&c.configFile,"config","y","","config file format in yaml or json")
 	fs.StringVarP(&c.hostFile,"file","f","","file path of hosts")
 	fs.StringVarP(&c.hostList,"list","l","","hosts:ip1,ip2")
+	fs.BoolVarP(&c.Async,"async","a",false,"execute concurrently")
 	fs.IntVarP(&c.Port,"port","p",22,"port of ssh connect to")
 	fs.StringVarP(&c.User,"user","u","root","user")
 	fs.StringVarP(&c.Password,"password","P","","password")
@@ -136,4 +139,42 @@ func (c *config) listHosts() ([]string, error) {
 	}
 
 	return keys,nil
+}
+
+
+func (c *config) buildWorkers() (map[string]sshWorker , error) {
+
+	hosts,err := c.listHosts()
+
+	if err != nil {
+		return nil, err
+	}
+
+	sshWorkers := make(map[string]sshWorker,len(hosts))
+
+	for _,host := range hosts {
+		addr := fmt.Sprintf("%s:%v",host,c.Port)
+		conn , err := net.Dial("tcp",addr)
+		if err != nil {
+			return nil,err
+		}
+
+		auth := []ssh.AuthMethod{ssh.Password(c.Password)}
+
+		sshConf := &ssh.ClientConfig{User:c.User,Auth:auth,HostKeyCallback:
+		func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		}}
+
+		sshConn, newChan, reqChan, err := ssh.NewClientConn(conn,addr,sshConf)
+		if err != nil {
+			return nil,err
+		}
+
+		sshClient := ssh.NewClient(sshConn,newChan,reqChan)
+		sshWorker := sshWorker{sshClient:sshClient,addr:addr}
+		sshWorkers[addr] = sshWorker
+	}
+
+	return sshWorkers, nil
 }

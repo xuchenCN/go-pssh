@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"net"
+	log "github.com/sirupsen/logrus"
 	"os"
+	"sync"
 )
 
 func NewPsshCommand() *cobra.Command {
@@ -32,53 +33,62 @@ func NewPsshCommand() *cobra.Command {
 
 func runCmd(cmd *cobra.Command, args []string, config config) error {
 
-	hosts,err := config.listHosts()
+	sshWorkers,err := config.buildWorkers()
 
 	if err != nil {
 		return err
 	}
 
-	log.Infof("Execute %v", hosts)
-
-	if len(hosts) <= 0 {
+	if len(sshWorkers) <= 0 {
 		return fmt.Errorf("no hosts to connects")
 	}
 
-	sshWorkers := make(map[string]sshWorker,len(hosts))
+	if config.Async {
+		wg := sync.WaitGroup{}
+		wg.Add(len(sshWorkers))
 
-	for _,host := range hosts {
-		addr := fmt.Sprintf("%s:%v",host,config.Port)
-		conn , err := net.Dial("tcp",addr)
-		if err != nil {
-			return err
+		for _, worker := range sshWorkers {
+			go func(worker sshWorker) {
+				if err := worker.executeAndOutput(config.Cmd,os.Stdout,os.Stderr); err != nil {
+					colorOut := color.New(color.FgRed)
+					colorOut.Fprintf(os.Stderr,"[%s ERROR]\n",worker.addr)
+					fmt.Fprintf(os.Stderr,"%s\n",err)
+				}
+				wg.Done()
+			}(worker)
 		}
 
-		auth := []ssh.AuthMethod{ssh.Password(config.Password)}
+		log.Infof("Waiting for %v hosts commands", len(sshWorkers))
+		wg.Wait()
 
-		sshConf := &ssh.ClientConfig{User:config.User,Auth:auth,HostKeyCallback:
-			func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-				return nil
-		}}
+	} else {
+		for _, worker := range sshWorkers {
 
-		sshConn, newChan, reqChan, err := ssh.NewClientConn(conn,addr,sshConf)
-		if err != nil {
-			return err
-		}
-
-		sshClient := ssh.NewClient(sshConn,newChan,reqChan)
-		sshWorker := sshWorker{sshClient:sshClient,addr:addr}
-		sshWorkers[addr] = sshWorker
-	}
-
-	for _, worker := range sshWorkers {
-
-		if err := worker.execute(config.Cmd); err != nil {
-			fmt.Fprintf(os.Stderr,"[%s Err] %v\n",worker.addr,err)
+			if err := worker.executeAndOutput(config.Cmd,os.Stdout,os.Stderr); err != nil {
+				fmt.Fprintf(os.Stderr,"[%s Err]\n %v\n",worker.addr,err)
+			}
 		}
 	}
 
 	return nil;
 }
+
+func runCmdAsync(cmd *cobra.Command, args []string, config config) error {
+	sshWorkers,err := config.buildWorkers()
+
+	if err != nil {
+		return err
+	}
+
+	if len(sshWorkers) <= 0 {
+		return fmt.Errorf("no hosts to connects")
+	}
+
+
+
+	return nil;
+}
+
 
 func ReadKey(sshkey string, privateKey *[]ssh.AuthMethod) bool {
 
