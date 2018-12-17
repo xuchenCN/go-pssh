@@ -20,8 +20,8 @@ type config struct {
 	configFile string
 
 	Hosts    []string `json:"hosts"`
-	Port     int      `json:port`
-	User     string   `json:user`
+	Port     int      `json:"port"`
+	User     string   `json:"user"`
 	Password string   `json:"password"`
 	Cmd      string   `json:"cmd"`
 	Async    bool     `json:"async"`
@@ -86,8 +86,6 @@ func (c *config) loadConfigFile() error {
 	} else {
 		return err
 	}
-
-	return nil
 }
 
 func (c *config) listHosts() ([]string, error) {
