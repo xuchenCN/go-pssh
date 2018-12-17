@@ -4,10 +4,9 @@ Parallel ssh tool written in golang
 ```
 go-pssh -l <ip>,<ip> -u <user> -p <port> -P <password> -c "<command>"
 ```
-
+host.txt
 ### Example use host list file
 ```
-host.txt
 <ip>
 <ip>
 <ip>
