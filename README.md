@@ -1,8 +1,21 @@
 Parallel ssh tool written in golang
 
-### Example
+### Example command
 ```
-go-pssh -l xxx.xxx.xxx.xxx,xxx.xxx.xxx.xxx -u user -p 22 -P password -c "command"
+go-pssh -l <ip>,<ip> -u <user> -p <port> -P <password> -c "<command>"
+```
+
+### Example use host list file
+```
+host.txt
+<ip>
+<ip>
+<ip>
+...
+```
+
+```
+go-pssh -f host.txt -u <user> -p <port> -P <password> -c "<command>"
 ```
 
 ### Example use yaml
@@ -13,10 +26,10 @@ hosts:
   - xxx.xxx.xxx.xxx
   - xxx.xxx.xxx.xxx
   - xxx.xxx.xxx.xxx
-port: 22
-user: user
-password: password
-cmd: uname -a
+port: <port>
+user: <user>
+password: <password>
+cmd: <command>
 ```
 
 ```
