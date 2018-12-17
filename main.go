@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	command := cmd.NewPsshCommand();
+	command := cmd.NewPsshCommand()
 
 	if err := command.Execute(); err != nil {
 		log.Error(err)

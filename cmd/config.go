@@ -15,41 +15,41 @@ import (
 )
 
 type config struct {
-	hostFile string
-	hostList string
+	hostFile   string
+	hostList   string
 	configFile string
 
-	Hosts []string  `json:"hosts"`
-	Port int 		`json:port`
-	User string 	`json:user`
-	Password string	`json:"password"`
-	Cmd string		`json:"cmd"`
-	Async bool 		`json:"async"`
+	Hosts    []string `json:"hosts"`
+	Port     int      `json:port`
+	User     string   `json:user`
+	Password string   `json:"password"`
+	Cmd      string   `json:"cmd"`
+	Async    bool     `json:"async"`
 }
 
 func (c *config) addFlags(fs *pflag.FlagSet) {
-	fs.StringVarP(&c.configFile,"config","y","","config file format in yaml or json")
-	fs.StringVarP(&c.hostFile,"file","f","","file path of hosts")
-	fs.StringVarP(&c.hostList,"list","l","","hosts:ip1,ip2")
-	fs.BoolVarP(&c.Async,"async","a",false,"execute concurrently")
-	fs.IntVarP(&c.Port,"port","p",22,"port of ssh connect to")
-	fs.StringVarP(&c.User,"user","u","root","user")
-	fs.StringVarP(&c.Password,"password","P","","password")
-	fs.StringVarP(&c.Cmd,"cmd","c","","command")
+	fs.StringVarP(&c.configFile, "config", "y", "", "config file format in yaml or json")
+	fs.StringVarP(&c.hostFile, "file", "f", "", "file path of hosts")
+	fs.StringVarP(&c.hostList, "list", "l", "", "hosts:ip1,ip2")
+	fs.BoolVarP(&c.Async, "async", "a", false, "execute concurrently")
+	fs.IntVarP(&c.Port, "port", "p", 22, "port of ssh connect to")
+	fs.StringVarP(&c.User, "user", "u", "root", "user")
+	fs.StringVarP(&c.Password, "password", "P", "", "password")
+	fs.StringVarP(&c.Cmd, "cmd", "c", "", "command")
 }
 
 func (c *config) validate() error {
 
-	if len(c.hostFile) <= 0 && len(c.hostList) <= 0 && len(c.configFile) <= 0{
+	if len(c.hostFile) <= 0 && len(c.hostList) <= 0 && len(c.configFile) <= 0 {
 		return fmt.Errorf("need file of host or hosts list or config file")
 	}
 
 	if len(c.configFile) > 0 {
-		if abs ,err := filepath.Abs(c.configFile) ; err != nil {
+		if abs, err := filepath.Abs(c.configFile); err != nil {
 			return nil
 		} else {
 			c.configFile = abs
-			log.Infof("convert path to %s" , c.configFile)
+			log.Infof("convert path to %s", c.configFile)
 		}
 
 		c.loadConfigFile()
@@ -60,11 +60,11 @@ func (c *config) validate() error {
 	}
 
 	if len(c.hostFile) > 0 {
-		if abs ,err := filepath.Abs(c.hostFile) ; err != nil {
+		if abs, err := filepath.Abs(c.hostFile); err != nil {
 			return nil
 		} else {
 			c.hostFile = abs
-			log.Infof("convert path to %s" , c.hostFile)
+			log.Infof("convert path to %s", c.hostFile)
 		}
 	}
 
@@ -80,7 +80,7 @@ func (c *config) loadConfigFile() error {
 		return fmt.Errorf("expect the abosulte path of config-file")
 	}
 
-	if cfgFile ,err := os.Open(c.configFile); err == nil {
+	if cfgFile, err := os.Open(c.configFile); err == nil {
 		yamlToJsonDecoder := yaml.NewYAMLToJSONDecoder(cfgFile)
 		return yamlToJsonDecoder.Decode(&c)
 	} else {
@@ -99,7 +99,7 @@ func (c *config) listHosts() ([]string, error) {
 			for {
 				b, _, err := fr.ReadLine()
 				if err == io.EOF {
-					break;
+					break
 				}
 				line := strings.TrimSpace(string(b))
 				if ip := net.ParseIP(line); ip == nil {
@@ -110,13 +110,13 @@ func (c *config) listHosts() ([]string, error) {
 				result[line] = nil
 			}
 		} else {
-			return nil,err
+			return nil, err
 		}
 	}
 
 	if len(c.hostList) > 0 {
-		list := strings.Split(c.hostList,",")
-		for _,host := range list {
+		list := strings.Split(c.hostList, ",")
+		for _, host := range list {
 			host = strings.TrimSpace(host)
 			if ip := net.ParseIP(host); ip == nil {
 				log.Error("%s is not valid ip addr ignore it")
@@ -134,45 +134,43 @@ func (c *config) listHosts() ([]string, error) {
 	}
 
 	keys := make([]string, 0, len(result))
-	for k,_ := range result {
-		keys = append(keys,k)
+	for k, _ := range result {
+		keys = append(keys, k)
 	}
 
-	return keys,nil
+	return keys, nil
 }
 
+func (c *config) buildWorkers() (map[string]sshWorker, error) {
 
-func (c *config) buildWorkers() (map[string]sshWorker , error) {
-
-	hosts,err := c.listHosts()
+	hosts, err := c.listHosts()
 
 	if err != nil {
 		return nil, err
 	}
 
-	sshWorkers := make(map[string]sshWorker,len(hosts))
+	sshWorkers := make(map[string]sshWorker, len(hosts))
 
-	for _,host := range hosts {
-		addr := fmt.Sprintf("%s:%v",host,c.Port)
-		conn , err := net.Dial("tcp",addr)
+	for _, host := range hosts {
+		addr := fmt.Sprintf("%s:%v", host, c.Port)
+		conn, err := net.Dial("tcp", addr)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 
 		auth := []ssh.AuthMethod{ssh.Password(c.Password)}
 
-		sshConf := &ssh.ClientConfig{User:c.User,Auth:auth,HostKeyCallback:
-		func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		sshConf := &ssh.ClientConfig{User: c.User, Auth: auth, HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		}}
 
-		sshConn, newChan, reqChan, err := ssh.NewClientConn(conn,addr,sshConf)
+		sshConn, newChan, reqChan, err := ssh.NewClientConn(conn, addr, sshConf)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 
-		sshClient := ssh.NewClient(sshConn,newChan,reqChan)
-		sshWorker := sshWorker{sshClient:sshClient,addr:addr}
+		sshClient := ssh.NewClient(sshConn, newChan, reqChan)
+		sshWorker := sshWorker{sshClient: sshClient, addr: addr}
 		sshWorkers[addr] = sshWorker
 	}
 
