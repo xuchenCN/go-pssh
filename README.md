@@ -6,8 +6,8 @@ go-pssh -l <ip>,<ip> -u <user> -p <port> -P <password> -c "<command>"
 ```
 
 ### Example use host list file
-```
 host.txt
+```
 <ip>
 <ip>
 <ip>
