@@ -49,9 +49,9 @@ func runCmd(cmd *cobra.Command, args []string, config config) error {
 
 		for _, worker := range sshWorkers {
 			go func(worker sshWorker) {
-				if err := worker.executeAndOutput(config.Cmd, os.Stdout, os.Stderr); err != nil {
+				if err := worker.executeAndOutput(os.Stdout, os.Stderr); err != nil {
 					colorOut := color.New(color.FgRed)
-					colorOut.Fprintf(os.Stderr, "[%s ERROR]\n", worker.addr)
+					colorOut.Fprintf(os.Stderr, "[%s ERROR]\n", worker.Addr)
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 				}
 				wg.Done()
@@ -64,24 +64,10 @@ func runCmd(cmd *cobra.Command, args []string, config config) error {
 	} else {
 		for _, worker := range sshWorkers {
 
-			if err := worker.executeAndOutput(config.Cmd, os.Stdout, os.Stderr); err != nil {
-				fmt.Fprintf(os.Stderr, "[%s Err]\n %v\n", worker.addr, err)
+			if err := worker.executeAndOutput(os.Stdout, os.Stderr); err != nil {
+				fmt.Fprintf(os.Stderr, "[%s Err]\n %v\n", worker.Addr, err)
 			}
 		}
-	}
-
-	return nil
-}
-
-func runCmdAsync(cmd *cobra.Command, args []string, config config) error {
-	sshWorkers, err := config.buildWorkers()
-
-	if err != nil {
-		return err
-	}
-
-	if len(sshWorkers) <= 0 {
-		return fmt.Errorf("no hosts to connects")
 	}
 
 	return nil
@@ -97,6 +83,7 @@ func ReadKey(sshkey string, privateKey *[]ssh.AuthMethod) bool {
 	if err != nil {
 		return false
 	}
+
 	*privateKey = append(*privateKey, ssh.PublicKeys(signer))
 	return true
 }

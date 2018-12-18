@@ -6,7 +6,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/xuchenCN/go-pssh/yaml"
-	"golang.org/x/crypto/ssh"
 	"io"
 	"net"
 	"os"
@@ -150,25 +149,12 @@ func (c *config) buildWorkers() (map[string]sshWorker, error) {
 	sshWorkers := make(map[string]sshWorker, len(hosts))
 
 	for _, host := range hosts {
-		addr := fmt.Sprintf("%s:%v", host, c.Port)
-		conn, err := net.Dial("tcp", addr)
-		if err != nil {
-			return nil, err
+		addr := fmt.Sprintf("%s:%s",host,c.Port)
+		sshWorker := sshWorker{User:c.User,
+			Addr:addr,
+			Password:c.Password,
+			Cmd:c.Cmd,
 		}
-
-		auth := []ssh.AuthMethod{ssh.Password(c.Password)}
-
-		sshConf := &ssh.ClientConfig{User: c.User, Auth: auth, HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		}}
-
-		sshConn, newChan, reqChan, err := ssh.NewClientConn(conn, addr, sshConf)
-		if err != nil {
-			return nil, err
-		}
-
-		sshClient := ssh.NewClient(sshConn, newChan, reqChan)
-		sshWorker := sshWorker{sshClient: sshClient, addr: addr}
 		sshWorkers[addr] = sshWorker
 	}
 
