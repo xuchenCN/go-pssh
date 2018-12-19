@@ -24,6 +24,14 @@ type config struct {
 	Password string   `json:"password"`
 	Cmd      string   `json:"cmd"`
 	Async    bool     `json:"async"`
+	HostSpec []HostSpec `json:"hostSpec"`
+}
+
+type HostSpec struct {
+	Addr string `json:"addr"`
+	Cmd string `json:"cmd"`
+	User string `json:"user"`
+	Password string `json:"password"`
 }
 
 func (c *config) addFlags(fs *pflag.FlagSet) {
@@ -149,13 +157,56 @@ func (c *config) buildWorkers() (map[string]sshWorker, error) {
 	sshWorkers := make(map[string]sshWorker, len(hosts))
 
 	for _, host := range hosts {
-		addr := fmt.Sprintf("%s:%s",host,c.Port)
-		sshWorker := sshWorker{User:c.User,
+		addr := fmt.Sprintf("%s:%v",host,c.Port)
+
+		sshWorker := sshWorker{HostSpec{User:c.User,
 			Addr:addr,
 			Password:c.Password,
-			Cmd:c.Cmd,
+			Cmd:c.Cmd},nil,
 		}
-		sshWorkers[addr] = sshWorker
+
+		sshWorkers[host] = sshWorker
+	}
+
+	//Load host special configuration
+	if len(c.HostSpec) > 0{
+		for _,spec := range c.HostSpec {
+
+			addrSplited := strings.Split(spec.Addr,":")
+			host := addrSplited[0]
+
+			worker,ok := sshWorkers[host];
+			if !ok {
+				worker = sshWorker{spec,nil}
+			}
+
+			//User
+			if len(spec.User) > 0 {
+				worker.User = spec.User
+			} else {
+				worker.User = c.User
+			}
+			//Password
+			if len(spec.Password) > 0 {
+				worker.Password = spec.Password
+			} else {
+				worker.Password = c.Password
+			}
+			//Cmd
+			if len(spec.Cmd) > 0 {
+				worker.Cmd = spec.Cmd
+			} else {
+				worker.Cmd = c.Cmd
+			}
+			//Addr string has port
+			if len(addrSplited) > 1 {
+				worker.Addr = spec.Addr
+			} else {
+				worker.Addr = fmt.Sprintf("%s:%v",host,c.Port)
+			}
+
+			sshWorkers[host] = worker
+		}
 	}
 
 	return sshWorkers, nil

@@ -9,11 +9,7 @@ import (
 )
 
 type sshWorker struct {
-	Addr string `json:"addr"`
-	Cmd string `json:"cmd"`
-	User string `json:"user"`
-	Password string `json:"password"`
-
+	HostSpec
 	sshClient *ssh.Client
 }
 
