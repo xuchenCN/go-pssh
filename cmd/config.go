@@ -24,7 +24,7 @@ type config struct {
 	Password string   `json:"password"`
 	Cmd      string   `json:"cmd"`
 	Async    bool     `json:"async"`
-	HostSpec []HostSpec `json:"hostSpec"`
+	HostSpec []HostSpec `json:"spec"`
 }
 
 type HostSpec struct {
