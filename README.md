@@ -1,6 +1,6 @@
 go-pssh is a parallel ssh tool written in golang, can define common or particular host configuration, use to deploy distributed system or execute some distributed programs like [tensorflow](tensorflow.org)
 
-Feel free to download [release](/release) for your platform
+Feel free to [download release](/release) for your platform
 
 ### Example command
 ```
