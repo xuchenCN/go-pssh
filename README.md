@@ -20,7 +20,7 @@ host.txt
 go-pssh -f host.txt -u <user> -p <port> -P <password> -c "<command>"
 ```
 
-### Example scp sue host file
+### Example scp use host file
 ```
 go-pssh scp -f host.txt -u <user> -p <port> -P <password> -s /local/file_or_directory -d /remote/directory
 ```
