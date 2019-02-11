@@ -85,6 +85,8 @@ func (sw *sshWorker) remoteCopy(src, distDir string) error {
 		}
 	}
 
+	log.Infof("%s copy done! \n" , sw.Addr)
+
 	return nil
 }
 
