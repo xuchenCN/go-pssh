@@ -20,6 +20,12 @@ host.txt
 go-pssh -f host.txt -u <user> -p <port> -P <password> -c "<command>"
 ```
 
+### Example scp sue host file
+```
+go-pssh scp -f host.txt -u <user> -p <port> -P <password> -s /local/file_or_directory -d /remote/directory
+```
+
+
 ### Example use yaml
 Use same ```port user passowrd command```
 
