@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/fatih/color"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"net"
@@ -31,6 +33,17 @@ func (sw *sshWorker) open() error {
 	}
 
 	sw.sshClient = ssh.NewClient(sshConn, newChan, reqChan)
+
+	return nil
+}
+
+func (sw *sshWorker) copy(src, dist string) error {
+
+	sftpClient, err := sftp.NewClient(sw.sshClient)
+
+	if err != nil {
+		log.Error("Errot to create sftp")
+	}
 
 	return nil
 }
