@@ -6,8 +6,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"io/ioutil"
+	"path/filepath"
 	"io"
 	"net"
+	"os"
+	"path"
 )
 
 type sshWorker struct {
@@ -37,12 +41,96 @@ func (sw *sshWorker) open() error {
 	return nil
 }
 
-func (sw *sshWorker) copy(src, dist string) error {
+func (sw *sshWorker) remoteCopy(src, distDir string) error {
+
+	if sw.sshClient == nil {
+		if err := sw.open(); err != nil {
+			return err
+		}
+	}
+
+	if !path.IsAbs(distDir) {
+		return fmt.Errorf(distDir + " is not absolute path")
+	}
+
+	if !path.IsAbs(src) {
+		return fmt.Errorf(src + " is not absolute path")
+	}
 
 	sftpClient, err := sftp.NewClient(sw.sshClient)
 
 	if err != nil {
 		log.Error("Errot to create sftp")
+		return err
+	}
+
+	defer sftpClient.Close()
+
+	srcFile, err := os.Open(src)
+
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	if isDir,err := IsDir(srcFile); err != nil {
+		return err
+	} else if isDir { // Directory
+		if err := copyDir(sftpClient , src, path.Join(distDir,path.Base(src))); err != nil {
+			return err;
+		}
+	} else { // File
+		if err := copyFile(sftpClient , src, distDir); err != nil {
+			return err;
+		}
+	}
+
+	return nil
+}
+
+func copyFile(sftpClient *sftp.Client, src, distDir string) error {
+
+	fileName := filepath.Base(src)
+
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err;
+	}
+	defer srcFile.Close()
+
+	dstFile, err := sftpClient.Create(path.Join(distDir, fileName))
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	CopyFile(srcFile, dstFile,0)
+
+	return nil
+}
+
+func copyDir(sftpClient *sftp.Client, src,distDir string) error {
+
+	files, err := ioutil.ReadDir(src)
+	if err != nil {
+		return nil
+	}
+
+	err = sftpClient.Mkdir(distDir)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	for _,file := range files {
+		if file.IsDir() {
+			if err = copyDir(sftpClient,path.Join(src,file.Name()), path.Join(distDir,file.Name())) ; err != nil {
+				return err
+			}
+		} else {
+			if err = copyFile(sftpClient,path.Join(src,file.Name()), distDir); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

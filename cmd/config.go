@@ -13,6 +13,11 @@ import (
 	"strings"
 )
 
+const (
+	// Kubelet component name
+	scpCommand = "scp"
+)
+
 type config struct {
 	hostFile   string
 	hostList   string
@@ -25,6 +30,9 @@ type config struct {
 	Cmd      string   `json:"cmd"`
 	Async    bool     `json:"async"`
 	HostSpec []HostSpec `json:"spec"`
+	
+	scpLocal string
+	scpRemote string
 }
 
 type HostSpec struct {
@@ -43,9 +51,13 @@ func (c *config) addFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&c.User, "user", "u", "root", "user")
 	fs.StringVarP(&c.Password, "password", "P", "", "password")
 	fs.StringVarP(&c.Cmd, "cmd", "c", "", "command")
+
+	//Scp command
+	fs.StringVarP(&c.scpLocal, "src", "s", "", "local file or directory when scp")
+	fs.StringVarP(&c.scpRemote, "dist", "d", "", "remote directory when scp")
 }
 
-func (c *config) validate() error {
+func (c *config) validate(subCmd string) error {
 
 	if len(c.hostFile) <= 0 && len(c.hostList) <= 0 && len(c.configFile) <= 0 {
 		return fmt.Errorf("need file of host or hosts list or config file")
@@ -62,7 +74,7 @@ func (c *config) validate() error {
 		c.loadConfigFile()
 	}
 
-	if len(c.Cmd) <= 0 {
+	if len(c.Cmd) <= 0 && subCmd != scpCommand {
 		return fmt.Errorf("where is your command")
 	}
 
@@ -73,6 +85,32 @@ func (c *config) validate() error {
 			c.hostFile = abs
 			log.Infof("convert path to %s", c.hostFile)
 		}
+	}
+
+	if len(subCmd) > 0 {
+
+		switch subCmd {
+		case scpCommand:
+
+			if len(c.scpLocal) <= 0 {
+				return fmt.Errorf("Using -s to specify local file or directory when scp")
+			}
+
+			if len(c.scpRemote) <= 0 {
+				return fmt.Errorf("Using -d to specify remote directory when scp")
+			}
+
+			if len(c.scpLocal) > 0 {
+				if abs, err := filepath.Abs(c.scpLocal); err != nil {
+					return nil
+				} else {
+					c.scpLocal = abs
+					log.Infof("convert path to %s", c.scpLocal)
+				}
+			}
+			break;
+		}
+
 	}
 
 	return nil
