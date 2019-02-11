@@ -20,9 +20,10 @@ host.txt
 go-pssh -f host.txt -u <user> -p <port> -P <password> -c "<command>"
 ```
 
-### Example scp use host file
+### Example scp use host file or host list
 ```
 go-pssh scp -f host.txt -u <user> -p <port> -P <password> -s /local/file_or_directory -d /remote/directory
+go-pssh scp -l <ip>,<ip> -u <user> -p <port> -P <password> -s /local/file_or_directory -d /remote/directory
 ```
 
 
@@ -43,6 +44,12 @@ cmd: <command>
 
 ```
 go-pssh -y xxxx.yaml
+```
+
+### Example scp use yaml
+
+```
+go-pssh scp -y xxxx.yaml -s /local/file_or_directory -d /remote/directory
 ```
 
 ### Example host special configuration
