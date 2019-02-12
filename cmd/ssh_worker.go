@@ -80,7 +80,7 @@ func (sw *sshWorker) remoteCopy(src, distDir string) error {
 			return err;
 		}
 	} else { // File
-		if err := copyFile(sftpClient , src, distDir); err != nil {
+		if _,err := copyFile(sftpClient , src, distDir); err != nil {
 			return err;
 		}
 	}
@@ -90,25 +90,24 @@ func (sw *sshWorker) remoteCopy(src, distDir string) error {
 	return nil
 }
 
-func copyFile(sftpClient *sftp.Client, src, distDir string) error {
+func copyFile(sftpClient *sftp.Client, src, distDir string) (int64,error) {
 
 	fileName := filepath.Base(src)
 
 	srcFile, err := os.Open(src)
 	if err != nil {
-		return err;
+		return 0,err;
 	}
 	defer srcFile.Close()
 
 	dstFile, err := sftpClient.Create(path.Join(distDir, fileName))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer dstFile.Close()
 
-	CopyFile(srcFile, dstFile,0)
+	return CopyFile(srcFile, dstFile)
 
-	return nil
 }
 
 func copyDir(sftpClient *sftp.Client, src,distDir string) error {
@@ -129,7 +128,7 @@ func copyDir(sftpClient *sftp.Client, src,distDir string) error {
 				return err
 			}
 		} else {
-			if err = copyFile(sftpClient,path.Join(src,file.Name()), distDir); err != nil {
+			if _,err = copyFile(sftpClient,path.Join(src,file.Name()), distDir); err != nil {
 				return err
 			}
 		}
