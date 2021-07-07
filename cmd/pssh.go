@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 	"github.com/fatih/color"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -14,8 +14,6 @@ import (
 func NewPsshCommand() *cobra.Command {
 
 	config := config{}
-
-
 
 	rootCommand := &cobra.Command{
 		Use:   "go-pssh",
@@ -46,7 +44,6 @@ func NewPsshCommand() *cobra.Command {
 
 	rootCommand.AddCommand(scpCommand)
 
-
 	return rootCommand
 }
 
@@ -67,8 +64,8 @@ func runScp(cmd *cobra.Command, args []string, config config) error {
 
 		for _, worker := range sshWorkers {
 			go func(worker sshWorker) {
-				if err := worker.remoteCopy(config.scpLocal,config.scpRemote); err != nil {
-					log.Errorf( "[%s Err]\n %v\n", worker.Addr, err)
+				if err := worker.remoteCopy(config.scpLocal, config.scpRemote); err != nil {
+					log.Errorf("[%s Err]\n %v\n", worker.Addr, err)
 				}
 				wg.Done()
 			}(worker)
@@ -80,7 +77,7 @@ func runScp(cmd *cobra.Command, args []string, config config) error {
 	} else {
 		for _, worker := range sshWorkers {
 
-			if err := worker.remoteCopy(config.scpLocal,config.scpRemote); err != nil {
+			if err := worker.remoteCopy(config.scpLocal, config.scpRemote); err != nil {
 				log.Errorf("[%s Err]\n %v\n", worker.Addr, err)
 			}
 		}

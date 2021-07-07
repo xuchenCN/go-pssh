@@ -23,22 +23,24 @@ type config struct {
 	hostList   string
 	configFile string
 
-	Hosts    []string `json:"hosts"`
-	Port     int      `json:"port"`
-	User     string   `json:"user"`
-	Password string   `json:"password"`
-	Cmd      string   `json:"cmd"`
-	Async    bool     `json:"async"`
-	HostSpec []HostSpec `json:"spec"`
-	
-	scpLocal string
+	Hosts        []string   `json:"hosts"`
+	Port         int        `json:"port"`
+	User         string     `json:"user"`
+	Password     string     `json:"password"`
+	KeyPath      string     `json:"key_path"`
+	KeyEncrypted bool       `json:"key_encrypted"`
+	Cmd          string     `json:"cmd"`
+	Async        bool       `json:"async"`
+	HostSpec     []HostSpec `json:"spec"`
+
+	scpLocal  string
 	scpRemote string
 }
 
 type HostSpec struct {
-	Addr string `json:"addr"`
-	Cmd string `json:"cmd"`
-	User string `json:"user"`
+	Addr     string `json:"addr"`
+	Cmd      string `json:"cmd"`
+	User     string `json:"user"`
 	Password string `json:"password"`
 }
 
@@ -47,9 +49,11 @@ func (c *config) addFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&c.hostFile, "file", "f", "", "file path of hosts")
 	fs.StringVarP(&c.hostList, "list", "l", "", "hosts:ip1,ip2")
 	fs.BoolVarP(&c.Async, "async", "a", false, "execute concurrently")
+	fs.BoolVarP(&c.KeyEncrypted, "key-encrypted", "e", false, "encrypted private key")
 	fs.IntVarP(&c.Port, "port", "p", 22, "port of ssh connect to")
 	fs.StringVarP(&c.User, "user", "u", "root", "user")
 	fs.StringVarP(&c.Password, "password", "P", "", "password")
+	fs.StringVarP(&c.KeyPath, "key", "k", "", "private key")
 	fs.StringVarP(&c.Cmd, "cmd", "c", "", "command")
 
 	//Scp command
@@ -108,7 +112,7 @@ func (c *config) validate(subCmd string) error {
 					log.Infof("convert path to %s", c.scpLocal)
 				}
 			}
-			break;
+			break
 		}
 
 	}
@@ -195,27 +199,29 @@ func (c *config) buildWorkers() (map[string]sshWorker, error) {
 	sshWorkers := make(map[string]sshWorker, len(hosts))
 
 	for _, host := range hosts {
-		addr := fmt.Sprintf("%s:%v",host,c.Port)
+		addr := fmt.Sprintf("%s:%v", host, c.Port)
 
-		sshWorker := sshWorker{HostSpec{User:c.User,
-			Addr:addr,
-			Password:c.Password,
-			Cmd:c.Cmd},nil,
+		sshWorker := sshWorker{HostSpec: HostSpec{User: c.User,
+			Addr:     addr,
+			Password: c.Password,
+			Cmd:      c.Cmd},
+			KeyPath:      c.KeyPath,
+			KeyEncrypted: c.KeyEncrypted,
 		}
 
 		sshWorkers[host] = sshWorker
 	}
 
 	//Load host special configuration
-	if len(c.HostSpec) > 0{
-		for _,spec := range c.HostSpec {
+	if len(c.HostSpec) > 0 {
+		for _, spec := range c.HostSpec {
 
-			addrSplited := strings.Split(spec.Addr,":")
+			addrSplited := strings.Split(spec.Addr, ":")
 			host := addrSplited[0]
 
-			worker,ok := sshWorkers[host];
+			worker, ok := sshWorkers[host]
 			if !ok {
-				worker = sshWorker{spec,nil}
+				worker = sshWorker{HostSpec: spec}
 			}
 
 			//User
@@ -240,7 +246,7 @@ func (c *config) buildWorkers() (map[string]sshWorker, error) {
 			if len(addrSplited) > 1 {
 				worker.Addr = spec.Addr
 			} else {
-				worker.Addr = fmt.Sprintf("%s:%v",host,c.Port)
+				worker.Addr = fmt.Sprintf("%s:%v", host, c.Port)
 			}
 
 			sshWorkers[host] = worker

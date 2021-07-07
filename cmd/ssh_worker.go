@@ -1,22 +1,25 @@
 package cmd
 
 import (
+	"crypto/x509"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/fatih/color"
 	"github.com/pkg/sftp"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
-	"io/ioutil"
-	"path/filepath"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 )
 
 type sshWorker struct {
 	HostSpec
-	sshClient *ssh.Client
+	KeyPath      string
+	KeyEncrypted bool
+	sshClient    *ssh.Client
 }
 
 func (sw *sshWorker) open() error {
@@ -25,7 +28,7 @@ func (sw *sshWorker) open() error {
 		return err
 	}
 
-	auth := []ssh.AuthMethod{ssh.Password(sw.Password)}
+	auth := sw.buildAuth()
 
 	sshConf := &ssh.ClientConfig{User: sw.User, Auth: auth, HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		return nil
@@ -39,6 +42,42 @@ func (sw *sshWorker) open() error {
 	sw.sshClient = ssh.NewClient(sshConn, newChan, reqChan)
 
 	return nil
+}
+
+func (sw *sshWorker) buildAuth() []ssh.AuthMethod {
+	result := []ssh.AuthMethod{}
+	if len(sw.Password) > 0 {
+		result = append(result, ssh.Password(sw.Password))
+	}
+
+	if len(sw.KeyPath) > 0 {
+		key, err := ioutil.ReadFile(sw.KeyPath)
+		if err != nil {
+			log.Fatalf("unable to read private key: %v", err)
+		}
+
+		var signer ssh.Signer
+		if sw.KeyEncrypted {
+			encryptedKey, err := x509.ParsePKCS1PrivateKey(key)
+			if err != nil {
+				log.Fatal(err)
+			}
+			signer, err = ssh.NewSignerFromKey(encryptedKey)
+			if err != nil {
+				log.Fatalf("unable to parse private key: %v", err)
+			}
+		} else {
+			// Create the Signer for this private key.
+			signer, err = ssh.ParsePrivateKey(key)
+			if err != nil {
+				log.Fatalf("unable to parse private key: %v", err)
+			}
+		}
+
+		result = append(result, ssh.PublicKeys(signer))
+	}
+
+	return result
 }
 
 func (sw *sshWorker) remoteCopy(src, distDir string) error {
@@ -73,32 +112,34 @@ func (sw *sshWorker) remoteCopy(src, distDir string) error {
 	}
 	defer srcFile.Close()
 
-	if isDir,err := IsDir(srcFile); err != nil {
+	if isDir, err := IsDir(srcFile); err != nil {
 		return err
 	} else if isDir { // Directory
-		if err := copyDir(sftpClient , src, path.Join(distDir,path.Base(src))); err != nil {
-			return err;
+		if err := copyDir(sftpClient, src, path.Join(distDir, path.Base(src))); err != nil {
+			return err
 		}
 	} else { // File
-		if _,err := copyFile(sftpClient , src, distDir); err != nil {
-			return err;
+		if _, err := copyFile(sftpClient, src, distDir); err != nil {
+			return err
 		}
 	}
 
-	log.Infof("%s copy done! \n" , sw.Addr)
+	log.Infof("%s copy done! \n", sw.Addr)
 
 	return nil
 }
 
-func copyFile(sftpClient *sftp.Client, src, distDir string) (int64,error) {
+func copyFile(sftpClient *sftp.Client, src, distDir string) (int64, error) {
 
 	fileName := filepath.Base(src)
 
 	srcFile, err := os.Open(src)
 	if err != nil {
-		return 0,err;
+		return 0, err
 	}
 	defer srcFile.Close()
+
+	srcStat, _ := os.Stat(src)
 
 	dstFile, err := sftpClient.Create(path.Join(distDir, fileName))
 	if err != nil {
@@ -106,29 +147,35 @@ func copyFile(sftpClient *sftp.Client, src, distDir string) (int64,error) {
 	}
 	defer dstFile.Close()
 
+	sftpClient.Chmod(dstFile.Name(), srcStat.Mode())
+
 	return CopyFile(srcFile, dstFile)
 
 }
 
-func copyDir(sftpClient *sftp.Client, src,distDir string) error {
+func copyDir(sftpClient *sftp.Client, src, distDir string) error {
 
 	files, err := ioutil.ReadDir(src)
 	if err != nil {
 		return nil
 	}
 
+	srcStat, _ := os.Stat(src)
+
 	err = sftpClient.Mkdir(distDir)
 	if err != nil && !os.IsExist(err) {
 		return err
 	}
 
-	for _,file := range files {
+	sftpClient.Chmod(distDir, srcStat.Mode())
+
+	for _, file := range files {
 		if file.IsDir() {
-			if err = copyDir(sftpClient,path.Join(src,file.Name()), path.Join(distDir,file.Name())) ; err != nil {
+			if err = copyDir(sftpClient, path.Join(src, file.Name()), path.Join(distDir, file.Name())); err != nil {
 				return err
 			}
 		} else {
-			if _,err = copyFile(sftpClient,path.Join(src,file.Name()), distDir); err != nil {
+			if _, err = copyFile(sftpClient, path.Join(src, file.Name()), distDir); err != nil {
 				return err
 			}
 		}
