@@ -52,6 +52,13 @@ go-pssh -y xxxx.yaml
 go-pssh scp -y xxxx.yaml -s /local/file_or_directory -d /remote/directory
 ```
 
+### Example use private key
+
+```
+./go-pssh scp -l xxx.xxx.xxx.xxx,xxx.xxx.xxx.xxx -k /root/.ssh/id_rsa <-e if encrypted key>
+```
+
+
 ### Example host special configuration
 Custome host config and merge by common configuration
 
